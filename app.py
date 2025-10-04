@@ -26,51 +26,21 @@ else:
     if user_input:
         st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
 
-# -------- Limpieza y normalización robusta de datos --------
+# -------- Normalización robusta de datos --------
 def normalizar_texto(columna):
-    return columna.astype(str).str.strip().str.title()  # Primera letra de cada palabra en mayúscula
+    return columna.astype(str).str.strip().str.title()
 
 df['Área'] = normalizar_texto(df['Área'])
 df['Nivel de riesgo'] = normalizar_texto(df['Nivel de riesgo'])
 
-# -------- Depuración: mostrar valores únicos --------
-st.write("Valores únicos de Área:", df['Área'].unique())
-st.write("Valores únicos de Nivel de riesgo:", df['Nivel de riesgo'].unique())
-
-# -------- Filtros --------
-st.sidebar.header("Filtros")
-area_seleccionada = st.sidebar.multiselect(
-    "Selecciona Área(s)",
-    options=sorted(df['Área'].unique()),
-    default=sorted(df['Área'].unique())
-)
-
-nivel_seleccionado = st.sidebar.multiselect(
-    "Selecciona Nivel de Riesgo",
-    options=sorted(df['Nivel de riesgo'].unique()),
-    default=sorted(df['Nivel de riesgo'].unique())
-)
-
-# -------- Filtrado del DataFrame --------
-df_filtrado = df[
-    (df['Área'].isin(area_seleccionada)) &
-    (df['Nivel de riesgo'].isin(nivel_seleccionado))
-]
-
-# -------- Depuración temporal --------
-st.write("Áreas seleccionadas:", area_seleccionada)
-st.write("Niveles seleccionados:", nivel_seleccionado)
-st.write("Cantidad de registros filtrados:", len(df_filtrado))
-st.dataframe(df_filtrado.head())
-
-# -------- Mostrar tabla filtrada --------
-st.subheader("Datos Filtrados")
-st.dataframe(df_filtrado)
+# -------- Mostrar tabla completa --------
+st.subheader("Todos los datos")
+st.dataframe(df)
 
 # -------- Gráfico de distribución --------
-if not df_filtrado.empty and "Nivel de riesgo" in df_filtrado.columns:
+if not df.empty and "Nivel de riesgo" in df.columns:
     fig = px.histogram(
-        df_filtrado,
+        df,
         x="Nivel de riesgo",
         color="Nivel de riesgo",
         title="Distribución de Niveles de Riesgo",
@@ -84,15 +54,15 @@ else:
 def convertir_a_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name="Datos Filtrados")
+        df.to_excel(writer, index=False, sheet_name="Datos")
     processed_data = output.getvalue()
     return processed_data
 
-st.subheader("Descargar Datos Filtrados")
-excel_data = convertir_a_excel(df_filtrado)
+st.subheader("Descargar Excel completo")
+excel_data = convertir_a_excel(df)
 st.download_button(
     label="Descargar Excel",
     data=excel_data,
-    file_name="datos_filtrados.xlsx",
+    file_name="datos_completos.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
