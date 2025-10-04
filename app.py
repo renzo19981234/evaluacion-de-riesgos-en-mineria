@@ -1,76 +1,39 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from io import BytesIO
+# --- NUEVO BLOQUE: Indicadores y gráfico circular ---
 
-# -------- Configuración --------
-PASSWORD = "mi123contraseña"
-DEFAULT_FILE = "riesgos_mineria_simulada.xlsx"
+# Calcular promedio del nivel de riesgo (numérico)
+promedio_riesgo = df_filtrado["Nivel de riesgo"].mean()
 
-st.title("Dashboard de Evaluación de Riesgos Minera")
-
-# -------- Autenticación --------
-user_input = st.text_input("Ingresa la contraseña para actualizar datos", type="password")
-
-# Cargar Excel por defecto
-df = pd.read_excel(DEFAULT_FILE)
-
-# Subir nuevo Excel solo si la contraseña es correcta
-if user_input == PASSWORD:
-    st.success("Contraseña correcta. Puedes actualizar los datos.")
-    uploaded_file = st.file_uploader("Sube un archivo Excel con nuevos datos", type=["xlsx"])
-    if uploaded_file:
-        df = pd.read_excel(uploaded_file)
-        st.success("Datos actualizados correctamente")
+# Determinar clasificación cualitativa
+if promedio_riesgo >= 15:
+    clasificacion_global = "ALTO"
+    color = "red"
+elif promedio_riesgo >= 8:
+    clasificacion_global = "MEDIO"
+    color = "orange"
 else:
-    if user_input:
-        st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
+    clasificacion_global = "BAJO"
+    color = "green"
 
-# -------- Normalización de datos --------
-def normalizar_texto(columna):
-    return columna.astype(str).str.strip().str.title()
-
-df['Área'] = normalizar_texto(df['Área'])
-df['Nivel de riesgo'] = normalizar_texto(df['Nivel de riesgo'])
-
-# -------- Selección de Área --------
-area_seleccionada = st.selectbox(
-    "Selecciona un Área",
-    options=sorted(df['Área'].unique())
+# Mostrar resultado global
+st.markdown(f"### 🔍 Resultados del Área: **{area_seleccionada}**")
+st.metric("Nivel de Riesgo Promedio", f"{promedio_riesgo:.2f}")
+st.markdown(
+    f"<h4 style='color:{color};'>Clasificación Global: {clasificacion_global}</h4>",
+    unsafe_allow_html=True
 )
 
-# -------- Filtrado del DataFrame --------
-df_filtrado = df[df['Área'] == area_seleccionada]
+# --- Gráfico circular por área y nivel de riesgo ---
+st.markdown("### 📊 Distribución de Riesgos por Área")
 
-# -------- Mostrar tabla filtrada --------
-st.subheader(f"Riesgos detectados en el área: {area_seleccionada}")
-st.dataframe(df_filtrado)
+# Agrupar los datos para el gráfico circular
+df_pie = df.groupby("Área")["Nivel de riesgo"].mean().reset_index()
 
-# -------- Gráfico de barras --------
-if not df_filtrado.empty and "Nivel de riesgo" in df_filtrado.columns:
-    fig = px.histogram(
-        df_filtrado,
-        x="Nivel de riesgo",
-        color="Nivel de riesgo",
-        title=f"Distribución de Niveles de Riesgo en {area_seleccionada}",
-        text_auto=True
-    )
-    st.plotly_chart(fig)
-else:
-    st.info("No hay datos para mostrar en el gráfico.")
-
-# -------- Función para descargar Excel filtrado --------
-def convertir_a_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name="Datos Filtrados")
-    return output.getvalue()
-
-st.subheader("Descargar Excel filtrado por Área")
-excel_data = convertir_a_excel(df_filtrado)
-st.download_button(
-    label="Descargar Excel",
-    data=excel_data,
-    file_name=f"datos_{area_seleccionada}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+fig_pie = px.pie(
+    df_pie,
+    names="Área",
+    values="Nivel de riesgo",
+    title="Porcentaje de Nivel de Riesgo por Área",
+    color_discrete_sequence=px.colors.sequential.RdYlGn_r
 )
+
+st.plotly_chart(fig_pie)
