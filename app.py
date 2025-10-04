@@ -1,85 +1,78 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
+from io import BytesIO
 
-# --- Título ---
-st.title("Evaluación de Riesgos por Área - Mina Simulada 🪨")
+# -------- Configuración --------
+PASSWORD = "mi123contraseña"  # Cambia esta contraseña
+DEFAULT_FILE = "riesgos_mineria_simulada.xlsx"
 
-# --- Cargar datos ---
-df = pd.read_excel("riesgos_mineria_simulada.xlsx")
+st.title("Dashboard de Evaluación de Riesgos Minera")
 
-# --- Calcular Nivel de Riesgo y Clasificación ---
-df["Nivel de riesgo"] = df["Probabilidad (1-5)"] * df["Severidad (1-5)"]
+# -------- Autenticación --------
+user_input = st.text_input("Ingresa la contraseña para actualizar datos", type="password")
 
-def clasificar_riesgo(valor):
-    if valor <= 4:
-        return "Bajo"
-    elif valor <= 12:
-        return "Medio"
-    else:
-        return "Alto"
+# Cargar Excel por defecto
+df = pd.read_excel(DEFAULT_FILE)
 
-df["Categoría de Riesgo"] = df["Nivel de riesgo"].apply(clasificar_riesgo)
+# Permitir subir nuevo Excel solo si la contraseña es correcta
+if user_input == PASSWORD:
+    st.success("Contraseña correcta. Puedes actualizar los datos.")
+    uploaded_file = st.file_uploader("Sube un archivo Excel con nuevos datos", type=["xlsx"])
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file)
+        st.success("Datos actualizados correctamente")
+else:
+    if user_input:
+        st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
 
-# --- Mostrar datos completos ---
-st.subheader("📋 Base de Datos de Riesgos")
-st.dataframe(df)
+# -------- Filtros --------
+st.sidebar.header("Filtros")
+area_seleccionada = st.sidebar.multiselect(
+    "Selecciona Área(s)",
+    options=df['Área'].unique(),
+    default=df['Área'].unique()
+)
 
-# --- Filtro por Área ---
-area = st.selectbox("Selecciona el área:", df["Área"].unique())
-df_filtrado = df[df["Área"] == area]
+nivel_seleccionado = st.sidebar.multiselect(
+    "Selecciona Nivel de Riesgo",
+    options=df['Nivel de riesgo'].unique(),
+    default=df['Nivel de riesgo'].unique()
+)
 
-st.subheader(f"Riesgos detectados en el área: {area}")
+df_filtrado = df[(df['Área'].isin(area_seleccionada)) & (df['Nivel de riesgo'].isin(nivel_seleccionado))]
+
+# -------- Mostrar tabla --------
+st.subheader("Datos Filtrados")
 st.dataframe(df_filtrado)
 
-# --- Gráfico de niveles de riesgo ---
-fig = px.histogram(
-    df_filtrado,
-    x="Categoría de Riesgo",
-    color="Categoría de Riesgo",
-    color_discrete_map={"Bajo": "green", "Medio": "yellow", "Alto": "red"},
-    category_orders={"Categoría de Riesgo": ["Bajo", "Medio", "Alto"]},
-    title="Distribución de niveles de riesgo"
-)
-st.plotly_chart(fig)
-
-# --- Indicadores clave mejorados ---
-st.subheader("📊 Indicadores Clave")
-
-# Número total de riesgos
-st.metric("Número total de riesgos", len(df_filtrado))
-
-if not df_filtrado.empty:
-    # Riesgo más frecuente
-    st.metric("Riesgo más frecuente", df_filtrado["Categoría de Riesgo"].mode()[0])
-    # Nivel de riesgo promedio
-    riesgo_promedio = round(df_filtrado["Nivel de riesgo"].mean(), 2)
-    st.metric("Nivel de riesgo promedio", riesgo_promedio)
-    
-    # Porcentaje de riesgos por categoría
-    porcentaje = df_filtrado["Categoría de Riesgo"].value_counts(normalize=True) * 100
-    bajo = round(porcentaje.get("Bajo", 0), 1)
-    medio = round(porcentaje.get("Medio", 0), 1)
-    alto = round(porcentaje.get("Alto", 0), 1)
-    
-    st.write(f"Porcentaje de riesgos: 🟢 Bajo: {bajo}% | 🟡 Medio: {medio}% | 🔴 Alto: {alto}%")
+# -------- Gráfico de distribución --------
+if not df_filtrado.empty and "Nivel de riesgo" in df_filtrado.columns:
+    fig = px.histogram(
+        df_filtrado,
+        x="Nivel de riesgo",
+        color="Nivel de riesgo",
+        title="Distribución de Niveles de Riesgo",
+        text_auto=True
+    )
+    st.plotly_chart(fig)
 else:
-    st.metric("Riesgo más frecuente", "N/A")
-    st.metric("Nivel de riesgo promedio", "N/A")
-    st.write("Porcentaje de riesgos: 🟢 Bajo: 0% | 🟡 Medio: 0% | 🔴 Alto: 0%")
+    st.info("No hay datos para mostrar en el gráfico.")
 
-# --- Botón para descargar Excel ---
+# -------- Función para descargar Excel --------
 def convertir_a_excel(df):
-    output = io.BytesIO()
-    df.to_excel(output, index=False)
-    return output.getvalue()
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='openpyxl')
+    df.to_excel(writer, index=False, sheet_name="Datos Filtrados")
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
 
+st.subheader("Descargar Datos Filtrados")
 excel_data = convertir_a_excel(df_filtrado)
-
 st.download_button(
-    label="📥 Descargar datos filtrados",
+    label="Descargar Excel",
     data=excel_data,
-    file_name=f"riesgos_{area}.xlsx",
+    file_name="datos_filtrados.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
