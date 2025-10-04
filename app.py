@@ -4,7 +4,7 @@ import plotly.express as px
 from io import BytesIO
 
 # -------- Configuración --------
-PASSWORD = "mi123contraseña"  # Cambia esta contraseña
+PASSWORD = "mi123contraseña"  # Cambia esta contraseña si quieres
 DEFAULT_FILE = "riesgos_mineria_simulada.xlsx"
 
 st.title("Dashboard de Evaluación de Riesgos Minera")
@@ -26,9 +26,9 @@ else:
     if user_input:
         st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
 
-# -------- Limpieza de datos para evitar errores --------
-df['Área'] = df['Área'].astype(str).str.strip()
-df['Nivel de riesgo'] = df['Nivel de riesgo'].astype(str).str.strip()
+# -------- Limpieza y normalización de datos --------
+df['Área'] = df['Área'].astype(str).str.strip().str.title()          # Primera letra de cada palabra en mayúscula
+df['Nivel de riesgo'] = df['Nivel de riesgo'].astype(str).str.strip().str.capitalize()  # Alto, Medio, Bajo
 
 # -------- Filtros --------
 st.sidebar.header("Filtros")
