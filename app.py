@@ -1,100 +1,102 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+from io import BytesIO
 
-# Intentar usar plotly si está disponible, si no, usar matplotlib
-try:
-    import plotly.express as px
-    usar_plotly = True
-except ImportError:
-    import matplotlib.pyplot as plt
-    usar_plotly = False
+# ------------------------------
+# CONFIGURACIÓN BÁSICA
+# ------------------------------
+st.set_page_config(page_title="Evaluación de Riesgos Mineros", layout="wide")
+st.title("⛏️ Evaluación de Riesgos en Minería")
+st.markdown("### Curso: Seguridad e Higiene Minera - Universidad Nacional de Piura")
 
-# --- Seguridad básica ---
-st.title("🛡️ Evaluación de Riesgos en Minería")
-password = st.text_input("🔒 Ingrese la contraseña para acceder:", type="password")
+# ------------------------------
+# CONTRASEÑA
+# ------------------------------
+PASSWORD = "Riesgo2025"
+password = st.text_input("🔒 Ingresa la contraseña para funciones avanzadas:", type="password")
+acceso = password == PASSWORD
 
-if password != "Riesgo2025":
-    st.warning("Ingrese la contraseña correcta para continuar.")
-    st.stop()
-
-# --- Cargar datos ---
-try:
-    df = pd.read_excel("riesgos_mineria_simulada.xlsx")
-except FileNotFoundError:
-    st.error("❌ No se encontró el archivo 'riesgos_mineria_simulada.xlsx'.")
-    st.stop()
-
-st.success("✅ Datos cargados correctamente.")
-st.write("### Vista general de los datos:")
-st.dataframe(df)
-
-# --- Selección de área ---
-areas = df["Área"].unique().tolist()
-area_seleccionada = st.selectbox("Seleccione un área para analizar:", areas)
-
-df_filtrado = df[df["Área"] == area_seleccionada]
-
-# --- Mostrar indicadores clave ---
-st.subheader(f"📊 Indicadores del área: {area_seleccionada}")
-
-riesgos_totales = len(df_filtrado)
-riesgo_promedio = df_filtrado["Nivel de riesgo"].mean()
-riesgo_maximo = df_filtrado["Nivel de riesgo"].max()
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Total de riesgos detectados", riesgos_totales)
-col2.metric("Nivel de riesgo promedio", round(riesgo_promedio, 2))
-col3.metric("Nivel de riesgo máximo", riesgo_maximo)
-
-# --- Gráfico circular de riesgos por clasificación ---
-st.subheader("🌀 Distribución de riesgos por clasificación")
-
-conteo = df_filtrado["Clasificación"].value_counts().reset_index()
-conteo.columns = ["Clasificación", "Cantidad"]
-
-if usar_plotly:
-    fig = px.pie(conteo, values="Cantidad", names="Clasificación", title="Distribución de Clasificación de Riesgos")
-    st.plotly_chart(fig)
-else:
-    fig, ax = plt.subplots()
-    ax.pie(conteo["Cantidad"], labels=conteo["Clasificación"], autopct="%1.1f%%")
-    ax.set_title("Distribución de Clasificación de Riesgos")
-    st.pyplot(fig)
-
-# --- Gráfico de nivel de riesgo promedio por área ---
-st.subheader("📈 Comparativa de riesgo promedio por área")
-
-riesgo_por_area = df.groupby("Área")["Nivel de riesgo"].mean().reset_index()
-
-if usar_plotly:
-    fig_area = px.bar(riesgo_por_area, x="Área", y="Nivel de riesgo",
-                      title="Nivel de Riesgo Promedio por Área",
-                      color="Nivel de riesgo", color_continuous_scale="viridis")
-    st.plotly_chart(fig_area)
-else:
-    fig, ax = plt.subplots()
-    ax.bar(riesgo_por_area["Área"], riesgo_por_area["Nivel de riesgo"], color="orange")
-    ax.set_xlabel("Área")
-    ax.set_ylabel("Nivel de riesgo promedio")
-    ax.set_title("Nivel de Riesgo Promedio por Área")
-    st.pyplot(fig)
-
-# --- Descarga de datos filtrados ---
-st.subheader("📥 Descargar datos del área seleccionada")
-
+# ------------------------------
+# CARGA DE DATOS
+# ------------------------------
 @st.cache_data
+def cargar_datos():
+    return pd.read_excel("riesgos_mineria_simulada.xlsx")
+
+df = cargar_datos()
+
+# ------------------------------
+# FILTROS
+# ------------------------------
+st.sidebar.header("🎛️ Filtros de búsqueda")
+areas = st.sidebar.multiselect("Selecciona área(s):", options=df["Área"].unique(), default=df["Área"].unique())
+clasificaciones = st.sidebar.multiselect("Selecciona clasificación(es):", options=df["Clasificación"].unique(), default=df["Clasificación"].unique())
+
+df_filtrado = df[df["Área"].isin(areas) & df["Clasificación"].isin(clasificaciones)]
+
+# ------------------------------
+# INDICADORES PRINCIPALES
+# ------------------------------
+col1, col2, col3 = st.columns(3)
+col1.metric("Total de Riesgos", len(df_filtrado))
+col2.metric("Riesgos Altos", sum(df_filtrado["Clasificación"] == "Alto"))
+col3.metric("Promedio de Severidad", round(df_filtrado["Severidad (1-5)"].mean(), 2))
+
+st.markdown("---")
+
+# ------------------------------
+# GRÁFICOS
+# ------------------------------
+col_g1, col_g2 = st.columns(2)
+
+# 1. Gráfico circular de clasificación
+fig_pie = px.pie(df_filtrado, names="Clasificación", title="Distribución de Clasificación de Riesgo", hole=0.4)
+col_g1.plotly_chart(fig_pie, use_container_width=True)
+
+# 2. Gráfico de barras: promedio por área
+df_area = df_filtrado.groupby("Área")[["Probabilidad (1-5)", "Severidad (1-5)"]].mean().reset_index()
+fig_bar = px.bar(df_area, x="Área", y=["Probabilidad (1-5)", "Severidad (1-5)"], 
+                 barmode="group", title="Promedio de Probabilidad y Severidad por Área")
+col_g2.plotly_chart(fig_bar, use_container_width=True)
+
+# 3. Gráfico de dispersión
+st.markdown("### 📊 Mapa de Riesgo: Probabilidad vs Severidad")
+fig_scatter = px.scatter(df_filtrado, x="Probabilidad (1-5)", y="Severidad (1-5)", 
+                         color="Clasificación", hover_data=["Área", "Actividad", "Peligro"],
+                         title="Mapa de Riesgo: Probabilidad vs Severidad")
+st.plotly_chart(fig_scatter, use_container_width=True)
+
+# 4. Conteo de riesgos por área
+st.markdown("### ⚙️ Cantidad de Riesgos por Área")
+fig_area = px.bar(df_filtrado["Área"].value_counts().reset_index(),
+                  x="count", y="index", orientation="h",
+                  title="Cantidad de Riesgos Detectados por Área")
+st.plotly_chart(fig_area, use_container_width=True)
+
+st.markdown("---")
+
+# ------------------------------
+# DESCARGA DE DATOS
+# ------------------------------
 def convertir_a_excel(df):
-    from io import BytesIO
-    import openpyxl
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Datos Filtrados')
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Riesgos")
     return output.getvalue()
 
 excel_data = convertir_a_excel(df_filtrado)
-st.download_button(
-    label="📂 Descargar Excel del área seleccionada",
-    data=excel_data,
-    file_name=f"riesgos_{area_seleccionada}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+st.download_button(label="📥 Descargar Datos Filtrados", data=excel_data, file_name="riesgos_filtrados.xlsx")
+
+# ------------------------------
+# SUBIDA DE NUEVOS DATOS
+# ------------------------------
+if acceso:
+    st.success("✅ Acceso concedido. Puedes actualizar la base de datos.")
+    archivo = st.file_uploader("Sube un nuevo archivo Excel (.xlsx):", type=["xlsx"])
+    if archivo:
+        nuevo_df = pd.read_excel(archivo)
+        nuevo_df.to_excel("riesgos_mineria_simulada.xlsx", index=False)
+        st.success("Archivo actualizado correctamente. Recarga la página para ver los cambios.")
+else:
+    st.info("🔐 Ingresa la contraseña para poder subir nuevos archivos.")
