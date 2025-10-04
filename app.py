@@ -26,9 +26,16 @@ else:
     if user_input:
         st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
 
-# -------- Limpieza y normalización de datos --------
-df['Área'] = df['Área'].astype(str).str.strip().str.title()          # Primera letra de cada palabra en mayúscula
-df['Nivel de riesgo'] = df['Nivel de riesgo'].astype(str).str.strip().str.capitalize()  # Alto, Medio, Bajo
+# -------- Limpieza y normalización robusta de datos --------
+def normalizar_texto(columna):
+    return columna.astype(str).str.strip().str.title()  # Primera letra de cada palabra en mayúscula
+
+df['Área'] = normalizar_texto(df['Área'])
+df['Nivel de riesgo'] = normalizar_texto(df['Nivel de riesgo'])
+
+# -------- Depuración: mostrar valores únicos --------
+st.write("Valores únicos de Área:", df['Área'].unique())
+st.write("Valores únicos de Nivel de riesgo:", df['Nivel de riesgo'].unique())
 
 # -------- Filtros --------
 st.sidebar.header("Filtros")
@@ -49,6 +56,12 @@ df_filtrado = df[
     (df['Área'].isin(area_seleccionada)) &
     (df['Nivel de riesgo'].isin(nivel_seleccionado))
 ]
+
+# -------- Depuración temporal --------
+st.write("Áreas seleccionadas:", area_seleccionada)
+st.write("Niveles seleccionados:", nivel_seleccionado)
+st.write("Cantidad de registros filtrados:", len(df_filtrado))
+st.dataframe(df_filtrado.head())
 
 # -------- Mostrar tabla filtrada --------
 st.subheader("Datos Filtrados")
