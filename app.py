@@ -26,23 +26,31 @@ else:
     if user_input:
         st.warning("Contraseña incorrecta. Solo puedes ver los datos existentes.")
 
+# -------- Limpieza de datos para evitar errores --------
+df['Área'] = df['Área'].astype(str).str.strip()
+df['Nivel de riesgo'] = df['Nivel de riesgo'].astype(str).str.strip()
+
 # -------- Filtros --------
 st.sidebar.header("Filtros")
 area_seleccionada = st.sidebar.multiselect(
     "Selecciona Área(s)",
-    options=df['Área'].unique(),
-    default=df['Área'].unique()
+    options=sorted(df['Área'].unique()),
+    default=sorted(df['Área'].unique())
 )
 
 nivel_seleccionado = st.sidebar.multiselect(
     "Selecciona Nivel de Riesgo",
-    options=df['Nivel de riesgo'].unique(),
-    default=df['Nivel de riesgo'].unique()
+    options=sorted(df['Nivel de riesgo'].unique()),
+    default=sorted(df['Nivel de riesgo'].unique())
 )
 
-df_filtrado = df[(df['Área'].isin(area_seleccionada)) & (df['Nivel de riesgo'].isin(nivel_seleccionado))]
+# -------- Filtrado del DataFrame --------
+df_filtrado = df[
+    (df['Área'].isin(area_seleccionada)) &
+    (df['Nivel de riesgo'].isin(nivel_seleccionado))
+]
 
-# -------- Mostrar tabla --------
+# -------- Mostrar tabla filtrada --------
 st.subheader("Datos Filtrados")
 st.dataframe(df_filtrado)
 
