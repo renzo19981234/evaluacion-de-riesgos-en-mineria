@@ -62,9 +62,8 @@ else:
 # -------- Función para descargar Excel --------
 def convertir_a_excel(df):
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='openpyxl')
-    df.to_excel(writer, index=False, sheet_name="Datos Filtrados")
-    writer.save()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name="Datos Filtrados")
     processed_data = output.getvalue()
     return processed_data
 
